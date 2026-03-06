@@ -42,30 +42,78 @@ export const useStore = create<StoreState>((set) => ({
     }),
 }));
 
-export function computeStopLevels(price: number | null | undefined): StopLevel[] {
-  const safePrice = price && price > 0 ? price : 0;
+const BUFFER = 0.001; // 0.1% buffer below each level
 
-  return [
-    {
-      label: "Tight",
-      percent: 2,
-      price: safePrice * 0.98,
-      color: "#fb7185",
-      description: "For active traders",
-    },
-    {
-      label: "Standard",
-      percent: 5,
-      price: safePrice * 0.95,
-      color: "#fbbf24",
-      description: "Balanced approach",
-    },
-    {
-      label: "Wide",
-      percent: 8,
-      price: safePrice * 0.92,
-      color: "#34d399",
-      description: "For swing traders",
-    },
-  ];
+const LEVEL_CONFIG = [
+  { label: "Tight", color: "#fb7185", description: "Recent low (12h)" },
+  { label: "Standard", color: "#fbbf24", description: "Consolidation floor" },
+  { label: "Wide", color: "#34d399", description: "Major structural low" },
+] as const;
+
+const FALLBACK_PERCENTS = [0.02, 0.05, 0.08];
+
+function findLowestLowInRange(candles: Candle[], from: number, to: number): number {
+  const start = Math.max(0, from);
+  const end = Math.min(candles.length, to);
+  let lowest = candles[start].low;
+  for (let i = start + 1; i < end; i++) {
+    if (candles[i].low < lowest) lowest = candles[i].low;
+  }
+  return lowest;
+}
+
+function calcPercent(current: number, stop: number): number {
+  return current > 0
+    ? Math.round(((current - stop) / current) * 10000) / 100
+    : 0;
+}
+
+export function computeStopLevels(
+  price: number | null | undefined,
+  klineData: Candle[] = []
+): StopLevel[] {
+  const safePrice = price && price > 0 ? price : 0;
+  const len = klineData.length;
+  const hasStructure = len >= 12;
+
+  let tightPrice: number;
+  let standardPrice: number;
+  let widePrice: number;
+
+  if (hasStructure) {
+    // Tight: lowest low of last 12 candles
+    tightPrice = findLowestLowInRange(klineData, len - 12, len) * (1 - BUFFER);
+
+    // Standard: absolute floor of the consolidation base (index -60 to -10)
+    const stdFrom = Math.max(0, len - 60);
+    const stdTo = Math.max(stdFrom + 1, len - 10);
+    standardPrice = findLowestLowInRange(klineData, stdFrom, stdTo) * (1 - BUFFER);
+
+    // Defensive: standard must be below tight
+    if (standardPrice >= tightPrice) {
+      standardPrice = tightPrice * 0.98;
+    }
+
+    // Wide: absolute lowest low across entire history
+    widePrice = findLowestLowInRange(klineData, 0, len) * (1 - BUFFER);
+
+    // Defensive: wide must be below standard
+    if (widePrice >= standardPrice) {
+      widePrice = standardPrice * 0.97;
+    }
+  } else {
+    tightPrice = safePrice * (1 - FALLBACK_PERCENTS[0]);
+    standardPrice = safePrice * (1 - FALLBACK_PERCENTS[1]);
+    widePrice = safePrice * (1 - FALLBACK_PERCENTS[2]);
+  }
+
+  const stops = [tightPrice, standardPrice, widePrice];
+
+  return LEVEL_CONFIG.map((config, i) => ({
+    label: config.label,
+    percent: calcPercent(safePrice, stops[i]),
+    price: stops[i],
+    color: config.color,
+    description: config.description,
+  }));
 }

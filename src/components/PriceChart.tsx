@@ -11,15 +11,8 @@ import {
   type ISeriesApi,
   type SeriesType,
 } from "lightweight-charts";
-import { useStore } from "@/lib/store";
-import { computeStopLevels } from "@/lib/store";
+import { useStore, computeStopLevels } from "@/lib/store";
 import { formatPrice } from "@/lib/format";
-
-const STOP_LEVEL_CONFIG = [
-  { label: "Tight -2%", color: "#fb7185" },
-  { label: "Standard -5%", color: "#fbbf24" },
-  { label: "Wide -8%", color: "#34d399" },
-];
 
 export default function PriceChart() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -130,21 +123,20 @@ export default function PriceChart() {
     }
     priceLinesRef.current = [];
 
-    const stopLevels = computeStopLevels(currentPrice);
+    const stopLevels = computeStopLevels(currentPrice, klineData);
 
-    stopLevels.forEach((level, i) => {
-      const config = STOP_LEVEL_CONFIG[i];
+    stopLevels.forEach((level) => {
       const priceLine = candleSeriesRef.current!.createPriceLine({
         price: level.price,
-        color: config.color,
+        color: level.color,
         lineWidth: 1,
         lineStyle: LineStyle.Dashed,
         axisLabelVisible: true,
-        title: config.label,
+        title: `${level.label} -${level.percent}%`,
       });
       priceLinesRef.current.push(priceLine);
     });
-  }, [currentPrice]);
+  }, [currentPrice, klineData]);
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 animate-fade-in">

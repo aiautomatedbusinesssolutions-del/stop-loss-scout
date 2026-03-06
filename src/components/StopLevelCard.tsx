@@ -41,7 +41,7 @@ export default function StopLevelCard({
         <div className="flex justify-between">
           <span className="text-slate-400">Distance</span>
           <span className="font-mono tabular-nums" style={{ color: level.color }}>
-            -{level.percent}%
+            -{level.percent.toFixed(1)}%
           </span>
         </div>
 

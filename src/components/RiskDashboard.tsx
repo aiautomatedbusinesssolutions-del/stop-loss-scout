@@ -11,6 +11,7 @@ const MAX_RISK_AMOUNT = 1_000_000;
 
 export default function RiskDashboard() {
   const currentPrice = useStore((s) => s.currentPrice);
+  const klineData = useStore((s) => s.klineData);
   const riskAmount = useStore((s) => s.riskAmount);
   const selectedSymbol = useStore((s) => s.selectedSymbol);
   const setRiskAmount = useStore((s) => s.setRiskAmount);
@@ -18,8 +19,8 @@ export default function RiskDashboard() {
   const baseAsset = selectedSymbol.replace("USDT", "");
 
   const stopLevels = useMemo(
-    () => computeStopLevels(currentPrice),
-    [currentPrice]
+    () => computeStopLevels(currentPrice, klineData),
+    [currentPrice, klineData]
   );
 
   // "Aha moment" — standard stop (index 1) summary
