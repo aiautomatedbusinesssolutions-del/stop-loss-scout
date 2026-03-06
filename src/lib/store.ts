@@ -43,6 +43,7 @@ export const useStore = create<StoreState>((set) => ({
 }));
 
 const BUFFER = 0.001; // 0.1% buffer below each level
+const SEPARATION = 0.97; // 3% minimum separation between levels
 
 const LEVEL_CONFIG = [
   { label: "Tight", color: "#fb7185", description: "Recent low (12h)" },
@@ -50,11 +51,23 @@ const LEVEL_CONFIG = [
   { label: "Wide", color: "#34d399", description: "Major structural low" },
 ] as const;
 
-const FALLBACK_PERCENTS = [0.02, 0.05, 0.08];
+const FALLBACK_PERCENTS = [0.02, 0.05, 0.10];
 
-function findLowestLowInRange(candles: Candle[], from: number, to: number): number {
+// --- Structural cache ---
+let structuralCacheKey = "";
+let structuralCacheValue: { tight: number; standard: number; wide: number } | null = null;
+
+function buildCacheKey(klineData: Candle[]): string {
+  if (klineData.length === 0) return "";
+  return `${klineData.length}:${klineData[0].openTime}:${klineData[klineData.length - 1].openTime}`;
+}
+
+// --- Hardened min-low scanner ---
+function minLowInRange(candles: Candle[], from: number, to: number): number | null {
   const start = Math.max(0, from);
   const end = Math.min(candles.length, to);
+  if (start >= end) return null;
+
   let lowest = candles[start].low;
   for (let i = start + 1; i < end; i++) {
     if (candles[i].low < lowest) lowest = candles[i].low;
@@ -68,40 +81,73 @@ function calcPercent(current: number, stop: number): number {
     : 0;
 }
 
+function computeStructuralLevels(klineData: Candle[]): { tight: number; standard: number; wide: number } | null {
+  const len = klineData.length;
+
+  // Tight: lowest low of last 12 candles
+  const tightRaw = minLowInRange(klineData, len - 12, len);
+  if (tightRaw === null) return null;
+  let tight = tightRaw * (1 - BUFFER);
+
+  // Standard: absolute floor of consolidation base (index -60 to -10)
+  const stdFrom = Math.max(0, len - 60);
+  const stdTo = Math.max(stdFrom + 1, len - 10);
+  const stdRaw = minLowInRange(klineData, stdFrom, stdTo);
+  let standard = stdRaw !== null ? stdRaw * (1 - BUFFER) : tight * SEPARATION;
+
+  // Strict inversion guard: standard must be at least 3% below tight
+  if (standard >= tight * SEPARATION) {
+    standard = tight * SEPARATION;
+  }
+
+  // Wide: absolute lowest low across entire history
+  const wideRaw = minLowInRange(klineData, 0, len);
+  let wide = wideRaw !== null ? wideRaw * (1 - BUFFER) : standard * SEPARATION;
+
+  // Strict inversion guard: wide must be at least 3% below standard
+  if (wide >= standard * SEPARATION) {
+    wide = standard * SEPARATION;
+  }
+
+  return { tight, standard, wide };
+}
+
 export function computeStopLevels(
   price: number | null | undefined,
   klineData: Candle[] = []
 ): StopLevel[] {
   const safePrice = price && price > 0 ? price : 0;
   const len = klineData.length;
-  const hasStructure = len >= 12;
 
   let tightPrice: number;
   let standardPrice: number;
   let widePrice: number;
 
-  if (hasStructure) {
-    // Tight: lowest low of last 12 candles
-    tightPrice = findLowestLowInRange(klineData, len - 12, len) * (1 - BUFFER);
+  if (len >= 12) {
+    // Check structural cache
+    const cacheKey = buildCacheKey(klineData);
+    let structural: { tight: number; standard: number; wide: number } | null;
 
-    // Standard: absolute floor of the consolidation base (index -60 to -10)
-    const stdFrom = Math.max(0, len - 60);
-    const stdTo = Math.max(stdFrom + 1, len - 10);
-    standardPrice = findLowestLowInRange(klineData, stdFrom, stdTo) * (1 - BUFFER);
-
-    // Defensive: standard must be below tight
-    if (standardPrice >= tightPrice) {
-      standardPrice = tightPrice * 0.98;
+    if (cacheKey === structuralCacheKey && structuralCacheValue !== null) {
+      structural = structuralCacheValue;
+    } else {
+      structural = computeStructuralLevels(klineData);
+      structuralCacheKey = cacheKey;
+      structuralCacheValue = structural;
     }
 
-    // Wide: absolute lowest low across entire history
-    widePrice = findLowestLowInRange(klineData, 0, len) * (1 - BUFFER);
-
-    // Defensive: wide must be below standard
-    if (widePrice >= standardPrice) {
-      widePrice = standardPrice * 0.97;
+    if (structural) {
+      tightPrice = structural.tight;
+      standardPrice = structural.standard;
+      widePrice = structural.wide;
+    } else {
+      // Structural scan failed — use fallback percents
+      tightPrice = safePrice * (1 - FALLBACK_PERCENTS[0]);
+      standardPrice = safePrice * (1 - FALLBACK_PERCENTS[1]);
+      widePrice = safePrice * (1 - FALLBACK_PERCENTS[2]);
     }
   } else {
+    // Not enough data — use fallback percents
     tightPrice = safePrice * (1 - FALLBACK_PERCENTS[0]);
     standardPrice = safePrice * (1 - FALLBACK_PERCENTS[1]);
     widePrice = safePrice * (1 - FALLBACK_PERCENTS[2]);
