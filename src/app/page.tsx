@@ -1,4 +1,5 @@
 import { Shield } from "lucide-react";
+import StopLossApp from "@/components/StopLossApp";
 
 export default function Home() {
   return (
@@ -16,9 +17,7 @@ export default function Home() {
           </p>
         </header>
 
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-8 text-center text-slate-400 animate-fade-in">
-          <p>App components coming soon...</p>
-        </div>
+        <StopLossApp />
       </div>
     </main>
   );

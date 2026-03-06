@@ -1,6 +1,6 @@
 import { Candle } from "@/types";
 
-const WS_BASE = "wss://stream.binance.com:9443/stream";
+const WS_BASE = "wss://stream.binance.us:9443/stream";
 const THROTTLE_MS = 500;
 const BASE_RECONNECT_MS = 1000;
 const MAX_RECONNECT_MS = 30000;

@@ -1,6 +1,6 @@
 import { Candle, TradingPair } from "@/types";
 
-const BASE_URL = "https://api.binance.com/api/v3";
+const BASE_URL = "/api/binance/api/v3";
 const REQUEST_TIMEOUT_MS = 12_000;
 
 async function fetchJsonWithTimeout<T>(

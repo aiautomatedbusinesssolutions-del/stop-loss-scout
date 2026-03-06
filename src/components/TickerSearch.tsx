@@ -39,10 +39,6 @@ export default function TickerSearch() {
   }, [query, tradingPairs]);
 
   useEffect(() => {
-    setHighlightIndex(-1);
-  }, [query]);
-
-  useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
@@ -92,6 +88,7 @@ export default function TickerSearch() {
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
+            setHighlightIndex(-1);
             setIsOpen(true);
           }}
           onFocus={() => query.trim() && setIsOpen(true)}
