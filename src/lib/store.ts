@@ -28,7 +28,8 @@ export const useStore = create<StoreState>((set) => ({
 
   setSelectedSymbol: (symbol) => {
     invalidateStructuralCache();
-    set({ selectedSymbol: symbol });
+    console.log("Symbol switched to:", symbol);
+    set({ selectedSymbol: symbol, klineData: [], currentPrice: 0 });
   },
   setCurrentPrice: (price) => set({ currentPrice: price }),
   setKlineData: (candles) => set({ klineData: candles }),
@@ -140,10 +141,10 @@ export function computeStopLevels(
     if (cacheKey === structuralCacheKey && structuralCacheValue !== null) {
       structural = structuralCacheValue;
     } else {
-      console.log("Calculating structure for:", symbol || "unknown");
       structural = computeStructuralLevels(klineData);
       structuralCacheKey = cacheKey;
       structuralCacheValue = structural;
+      console.log("Structural support found:", !!structural, "for", symbol || "unknown");
     }
 
     if (structural) {
