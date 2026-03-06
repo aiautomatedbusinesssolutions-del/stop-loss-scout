@@ -19,8 +19,8 @@ export default function RiskDashboard() {
   const baseAsset = selectedSymbol.replace("USDT", "");
 
   const stopLevels = useMemo(
-    () => computeStopLevels(currentPrice, klineData),
-    [currentPrice, klineData]
+    () => computeStopLevels(currentPrice, klineData, selectedSymbol),
+    [currentPrice, klineData, selectedSymbol]
   );
 
   // "Aha moment" — standard stop (index 1) summary

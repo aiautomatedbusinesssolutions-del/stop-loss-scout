@@ -123,7 +123,7 @@ export default function PriceChart() {
     }
     priceLinesRef.current = [];
 
-    const stopLevels = computeStopLevels(currentPrice, klineData);
+    const stopLevels = computeStopLevels(currentPrice, klineData, selectedSymbol);
 
     stopLevels.forEach((level) => {
       const priceLine = candleSeriesRef.current!.createPriceLine({

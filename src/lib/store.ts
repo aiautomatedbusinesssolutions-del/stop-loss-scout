@@ -26,7 +26,10 @@ export const useStore = create<StoreState>((set) => ({
   riskAmount: 100,
   tradingPairs: [],
 
-  setSelectedSymbol: (symbol) => set({ selectedSymbol: symbol }),
+  setSelectedSymbol: (symbol) => {
+    invalidateStructuralCache();
+    set({ selectedSymbol: symbol });
+  },
   setCurrentPrice: (price) => set({ currentPrice: price }),
   setKlineData: (candles) => set({ klineData: candles }),
   setConnectionStatus: (status) => set({ connectionStatus: status }),
@@ -57,9 +60,14 @@ const FALLBACK_PERCENTS = [0.02, 0.05, 0.10];
 let structuralCacheKey = "";
 let structuralCacheValue: { tight: number; standard: number; wide: number } | null = null;
 
-function buildCacheKey(klineData: Candle[]): string {
+function invalidateStructuralCache() {
+  structuralCacheKey = "";
+  structuralCacheValue = null;
+}
+
+function buildCacheKey(symbol: string, klineData: Candle[]): string {
   if (klineData.length === 0) return "";
-  return `${klineData.length}:${klineData[0].openTime}:${klineData[klineData.length - 1].openTime}`;
+  return `${symbol}:${klineData.length}:${klineData[0].openTime}:${klineData[klineData.length - 1].openTime}`;
 }
 
 // --- Hardened min-low scanner ---
@@ -114,7 +122,8 @@ function computeStructuralLevels(klineData: Candle[]): { tight: number; standard
 
 export function computeStopLevels(
   price: number | null | undefined,
-  klineData: Candle[] = []
+  klineData: Candle[] = [],
+  symbol: string = ""
 ): StopLevel[] {
   const safePrice = price && price > 0 ? price : 0;
   const len = klineData.length;
@@ -124,13 +133,14 @@ export function computeStopLevels(
   let widePrice: number;
 
   if (len >= 12) {
-    // Check structural cache
-    const cacheKey = buildCacheKey(klineData);
+    // Check structural cache (keyed by symbol + data shape)
+    const cacheKey = buildCacheKey(symbol, klineData);
     let structural: { tight: number; standard: number; wide: number } | null;
 
     if (cacheKey === structuralCacheKey && structuralCacheValue !== null) {
       structural = structuralCacheValue;
     } else {
+      console.log("Calculating structure for:", symbol || "unknown");
       structural = computeStructuralLevels(klineData);
       structuralCacheKey = cacheKey;
       structuralCacheValue = structural;
