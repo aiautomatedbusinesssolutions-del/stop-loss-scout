@@ -96,7 +96,7 @@ function computeStructuralLevels(klineData: Candle[]): { tight: number; standard
   // Tight: lowest low of last 12 candles
   const tightRaw = minLowInRange(klineData, len - 12, len);
   if (tightRaw === null) return null;
-  let tight = tightRaw * (1 - BUFFER);
+  const tight = tightRaw * (1 - BUFFER);
 
   // Standard: absolute floor of consolidation base (index -60 to -10)
   const stdFrom = Math.max(0, len - 60);

@@ -12,7 +12,6 @@ import EducationSection from "./education/EducationSection";
 
 export default function StopLossApp() {
   const selectedSymbol = useStore((s) => s.selectedSymbol);
-  const currentPrice = useStore((s) => s.currentPrice);
   const setTradingPairs = useStore((s) => s.setTradingPairs);
   const setKlineData = useStore((s) => s.setKlineData);
   const setCurrentPrice = useStore((s) => s.setCurrentPrice);
@@ -27,9 +26,6 @@ export default function StopLossApp() {
 
   // Load trading pairs on mount
   useEffect(() => {
-    setIsPairsLoading(true);
-    setPairsError(null);
-
     getExchangeInfo()
       .then(setTradingPairs)
       .catch((err) => {
